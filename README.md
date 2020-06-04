@@ -1,8 +1,8 @@
-This Coding Style was copied from https://github.com/niklasfrykholm/blog/blob/master/reference/coding-style.md and with a few changes will be used by the MoonEd engine.
+This Coding Style based on https://github.com/niklasfrykholm/blog/blob/master/reference/coding-style.md. Changes where made over time resulting in the current version.
 
 # Coding Style
 
-This document describes the coding style you should use when working on code for the MoonEd engine and tools.
+This document describes the coding style you should use when working on code for the IceShard engine and tools.
 
 ## Table of Contents
 
@@ -14,14 +14,14 @@ This document describes the coding style you should use when working on code for
   * [Comments](#comments)
   * [Design and Implementation Issues](#design-and-implementation-issues)
   * [Miscellaneous Tidbits](#miscellaneous-tidbits)
-* [Angelscript Code](#angelscript-code)
-* [Lua Code](#lua-code)
+* [Jinx scripts](#jinx-scripts)
+* [Lua Scripts](#lua-scripts)
+* [Asset metadata](#asset-metadata)
+* 
 
 ## C++ Code
 
 This section describes the coding style for C++ code, and also general coding guidelines that are useful regardless of what languge you are using.
-
-For Lua and Angelscript we use different naming conventions than for C++ to match the standards for those langauges. These standards are described in langauge specific sections below.
 
 ### Introduction
 
@@ -158,8 +158,8 @@ If the class was called circle, the variable would have to be called something h
 Being able to quickly distinguish member variables from local variables is good for readability... and it also allows us to use the most natural syntax for getter and setter methods:
 
 ```cpp
-const Circle &circle() const { return _circle; }
-void set_circle(const Circle &circle) { _circle = circle; }
+auto circle() const -> Circle const& { return _circle; }
+void set_circle(Circle const& circle) { _circle = circle; }
 ```
 
 A single underscore is used as a prefix, because a prefix with letters in it (like `m_`) makes the code harder to read.
@@ -172,6 +172,7 @@ Also, using underscores makes the member variables stand out more, since there c
 
 * Take care while naming member variables with a underscore
 * The standard reserves all names using two or more underscores in a row and names starting with a underscore followed by a Big letter.
+* It also reserves all names starting with a underscore in the global namespace / file scope.
 
 ```cpp
 // Reserved:
@@ -179,7 +180,7 @@ int __age;
 int __age__;
 int _Age;
 
-// Allowed:
+// Allowed (in any user class or namespace context, excluding `std`)
 int _age;
 ```
 
@@ -192,34 +193,146 @@ It is good to have `#define` macro names really standing out, since macros can b
 
 This is the most readable syntax, so we prefer this when we don't have any reason to do otherwise.
 
-#### Name enums `LikeThis`, and enum values `LIKE_THIS`
+Use a single namespace identifier if parent namespaces do not define or declare anything new.
+
+```cpp
+// BAD
+namespace Foo
+{
+    namespace Bar
+    {
+        namespace FooBar
+	{
+            ...
+	}
+    }
+}
+
+// GOOD
+namespace Foo::Bar::FooBar
+{
+    ...
+}
+```
+
+#### Name enums and enum values `LikeThis`
 
 Enums are types, just as classes and structs and should follow the same naming convention.
-
-Enum values are used in the same way as #defines of integer constants and as a user of an API you don't care if a constant is implemented with an enum or with a a macro. Therefore we use the same naming convention.
 
 Enums should use the `enum class` feature of C++11 to avoid exporting the enum names to the enclosing scope:
 
 ```cpp
-enum class Align {LEFT, RIGHT, CENTER};
+enum class Align {Left, Right, Center};
 ```
 
-#### Name files `like_this.cpp`
+Enums not using the `enum class` feature are required to prefix each value with the enum name followed by a underscore.
+```cpp
+enum CommonValues { CommonValues_Foo, CommonValues_Bar, CommonValues_FooBar };
+```
+
+#### Name source files `like_this.cxx`, and header files `like_this.hxx`
 
 Again, this is the most readable format, so we choose that when we don't have a reason to do something else.
 
 The `.h` files should be put in the same directory as the `.cpp` files, not in some special "include" directory, for easier navigation between the files.
+
+#### Place only public header files in the `public` directory.
+
+Never place source files in the `public` directory, as its only purpose is to provide an interface for your library.
+
+Place only interface header files in the `public` directory, if a header files contains implementation details, keep it in the `private` directory.
+
+#### Using types in code
+
+Always prefer standarized types like `uint32_t` before `int` or `unsigned`.
+
+Use `east const` instead of west const, this allows for better code readability as the only rule to remember is: `const` applies to the type on the left.
+
+When appliciable use `const` types for local variables or class members.
+
+Use `constexpr` for simple static class members or `const` instead. 
+Try to avoid static mutable values, because this introduces a lot of problems in concurrent code.
 
 #### Standard functions
 
 Getter and setter functions should look like this.
 
 ```cpp
-const Circle &circle() const { return _circle; }
-void set_circle(Circle &circle) { _circle = circle; }
+auto circle() const -> Circle const& { return _circle; }
+void set_circle(Circle& circle) { _circle = circle; }
 ```
 
 The getter is called `circle` rather than `get_circle`, since the `get_` prefix is superfluous. However, we use a `set_` prefix to emphasize that we are changing the state of the object.
+
+#### Return types 
+
+Prefer using trailing return types instead of the old syntax. This allows to focus on the function name and it's arguments instead of reading a multiline return type first, which might not even be used.
+
+The exeption are `bool` and `void` return types, which also have 4 letters and are so common it is of no value to put them at the end.
+
+```cpp
+// OK, but not prefered
+void bar_task();
+bool is_foobar_done();
+
+FooResult foo_task();
+
+std::unique_ptr<WithAResultType, AndACustomDeleterType> get_future();
+
+// Better
+void bar_task();
+bool is_foobar_done();
+
+auto foo_task() -> FooResult;
+
+auto get_future() -> std::unique_ptr<WithAResultType, AndACustomDeleterType>;
+```
+
+#### Const the world
+
+Because C++ does implicitly allow to modify everything _(not like Rust)_ try to `const` eveything that is a good candidate. 
+
+If you need to access something, __DO NOT EVER__ `const_cast` it away, search for another way to access the mutable version of that value or if you created the interface, change it to a mutable one. 
+
+You can also always provide two method definitions in a class.
+
+```cpp
+class Object
+{
+    auto some_value() -> int&; // Can be only accessed on non-const Object's.
+    auto some_value() const -> int const&; // Can be only accessed on const Object's.
+};
+```
+
+#### C++ Attributes
+
+Make use of the new C++ attributes like `[[nodiscard]]` and `[[maybe_unused]]`.
+
+```cpp
+[[nodiscard]]
+auto create_expensive_object() -> std::unique_ptr<ExpensiveObject>;
+
+void do_something_on_windows([[maybe_unused]] int some_param)
+{
+#if IS_WINDOWS_BUILD
+    // `some_param` only used on windows builds
+#endif
+}
+```
+
+However because IceShard does quite heavily embrace modern C++ a lot of defines are replaced or also available as `constexpr` values. In such scenarios you don't need to mark parameters as `[[maybe_unused]]` if writing platform specific code _(unless it does not use platform specific SDK's)_
+
+```cpp
+void do_something_on_windows(int some_param)
+{
+    // if the expression turns to be false, the compiler still parses it's body and marks `some_param` as used.
+    // This will not trigger an `unused parameter` warning or error.
+    if constexpr(is_windows_build)
+    {
+        // `some_param` only used on windows builds
+    }
+}
+```
 
 ### Braces and Scopes
 
@@ -240,11 +353,13 @@ Write
 while (a)
 {
     if (b)
+    {
         c;
+    }
 }
 ```
 
-Only the innermost scope is allowed to omit its braces.
+Only the innermost scope is allowed to omit its braces, but try to _(em-)_brace everything.
 
 #### Fit matching braces on a single screen
 
@@ -311,40 +426,15 @@ if (f.valid())
 }
 ```
 
-This is one of the few cases where `goto` can be validly used:
-
-```cpp
-File f = open_file();
-if (!f.valid())
-    goto err;
-
-std::string name;
-if (!f.read(&name))
-    goto err;
-
-int age;
-if (!f.read(&age))
-    goto err;
-
-err:
-    ...
-```
-
 Local helper lambda functions is another good way of avoiding deep nesting.
 
 #### The three bracing styles and when to use them
 
-There are three bracing styles used:
+There are two bracing styles used:
 
 ```cpp
 // Single line
 int f() const { return 3; }
-
-// Opened on same line
-while (true) {
-    do(stuff);
-     more(stuff);
-}
 
 // New line
 int X::f() const
@@ -355,21 +445,19 @@ int X::f() const
 
 The first style is typically used for getter and setter functions in the header file to make the header more compact.
 
-The second style is the default for while loops and for-loops with more than one line.
-
-This third is used for class declarations and function declarations in the `.cpp` file.
+This second is used for any other case like: while loops, for-loops, class declarations and function declarations.
 
 Consistent bracing style is not super important, but in general the rule should be that the more that is enclosed by the brace, the more space there should be in the brace.
 
 ### Indentation and Spacing
 
-#### Use tabs for indentation
+#### Use tabs for indentation _(under review for IceShard)_
 
 Tabs gives users more flexibility in controlling the indentation.
 
 You should set your editor to display the tabs as four spaces. This provides a good compromise between readability and succinctness.
 
-#### Use spaces to align columns
+#### Use spaces to align columns _(problem imposed by tabs, under review)_
 
 The start of a line should always be indented with tabs, but if you want to align some other column of code you should use spaces:
 
@@ -388,7 +476,7 @@ This ensures that the columns line up even if a different tab setting is used. E
 
 There should be no whitespace at the end of a line. Such invisible whitespace can lead to merge issues.
 
-Empty lines are an exception. Empty lines may contain indentation tabs, but they should have no extra whitespace apart from the indentation tabs.
+Empty lines are __not__ an exception. Empty lines may not contain any tabs tabs, but they should have no extra whitespace apart from the indentation tabs.
 
 #### Think about evaluation order when placing spaces
 
