@@ -8,6 +8,7 @@ This document describes the coding style you should use when working on code for
 
 * [C++ Code](#c++-code)
   * [Introduction](#introduction)
+  * [Includes and dependencies](#includes-and-dependencies)
   * [Naming](#naming)
   * [Braces and Scopes](#braces-and-scopes)
   * [Indentation and Spacing](#indentation-and-spacing)
@@ -46,6 +47,47 @@ There is not much point in going over the entire codebase looking for style viol
 Avoid changing the style back and forth in the same piece of code. If you cannot agree on the style, talk about it instead of having a "cold war" in the codebase.
 
 If you disagree strongly with one of the rules in this style guide, you should propose a change to the rule rather than silently rebel.
+
+### Includes and dependencies
+
+Proper including is a way for successful dependency management. To make it as easy as possible there are a few rules in place in all projects which should help you find around the codebase.
+
+#### The `public` and `private` directories
+
+Each project has at least one of them, where `public` is used to hold __only__ interfaces and public functions, and `private` holds all implementation details private, and utility code.
+
+It's not permitted to add source files to the `public` directory, only header and inline files are allowed.
+
+#### Include rules 
+
+If a header is placed in a `public` directory, no matter if it's the same project or a dependent project, you include it with arrow braces.
+
+Same goes for SDK headers and external 3rd party libraries.
+
+```cpp
+#include <project/public_header.hxx> // Same project 'public` header 
+#include <other/public_header.hxx> // Other dependency project 'public` header 
+#include <Windows.h> // OS SDK header
+#include <zlib.h> // 3rdParty library geader
+```
+
+Accessing a header from the `private` directory can only use the `""` syntax, __but__ it is not alowed to use __..__ backwards paths.
+
+```cpp
+// BAD
+#include "../private_root_header.hxx"
+
+// GOOD 
+#include "private_implementation/feature_header.hxx"
+```
+
+#### Providing common tools
+
+Because of the above `include` rules it seems there is no way to include a common `root` header with helpfull utility functions in sub-directories. But thats not the case.
+
+As far as it comes to include a giant utility header _(which tend to appear)_ it's better to create such utility header for each sub directory and fill with with function declaration used only for this sub-directory.
+
+Functions can be declared this way, and implemented in a single place in the private root directory.
 
 ### Naming
 
@@ -476,7 +518,9 @@ This ensures that the columns line up even if a different tab setting is used. E
 
 There should be no whitespace at the end of a line. Such invisible whitespace can lead to merge issues.
 
-Empty lines are __not__ an exception. Empty lines may not contain any tabs tabs, but they should have no extra whitespace apart from the indentation tabs.
+Empty lines are __not__ an exception. Empty lines may not contain any tabs or spaces. 
+
+NOTE: There are plugins, settings and other means to see these extra spaces and even remove them on saving in various text editors.
 
 #### Think about evaluation order when placing spaces
 
@@ -533,14 +577,14 @@ Don't go crazy with line lengths, scrolling to see the end of the line is annoyi
 * Do not put a space between the function name and the parenthesis in a function call.
 * Do not put spaces inside parenthesis.
 * Put spaces after commas, do not put spaces before commas.
-* In a variable declaration, do not put a space after `*` or `&`.
+* In a variable declaration, do not put a space before `*` or `&` and put a space after.
 
 ```cpp
 // GOOD
 if (x)
 for (int i = 0; i < 3; ++i)
 memset(&a, 0, sizeof(a));
-void f(const T &t)
+void f(T const& t)
 
 // BAD
 if(x)
@@ -570,6 +614,7 @@ void f()
 ```
 
 Instead, indent your macros just as you would normal C code:
+_(Under review)_
 
 ```cpp
 void f()
@@ -588,22 +633,6 @@ void f()
 ```
 
 In visual studio go to **Tools > Text Editor > C/C++ > Tabs** and change `Indenting` from `Smart` to `Block` to prevent the default indenting.
-
-#### Do not indent the entire file
-
-When the entire file is inside one (or several) namespaces, you should not indent the entire file. Indenting an entire file does not increase readability, it just means you will fit less code on the screen.
-
-Instead, put a comment on the closing brace.
-
-```cpp
-namespace mooned
-{
-void x();
-...
-} // namespace mooned
-```
-
-When the namespace declaration does not cover the entire file, but only a screenfull or so, then it can be a good idea to indent it.
 
 ### Comments
 
@@ -740,7 +769,7 @@ Be aware that the rules of optimization have changed. Cycle counts matter less. 
 
 ### C++11 Features
 
-The MoonEd engine is compiled using C\+\+17, but not all C\+\+17 features are supported by all the compilers we support. (Generally, Visual Studio 2012 sets the low bar.) The features listed below are the C\+\+17 features that are known to be working and that we recommend using.
+The IceShard engine is compiled using C\+\+20, and aims to use only features up to this standard, nothing above. The features listed below are the C\+\+17 features that are known to be working and that we recommend using.
 
 #### `auto`
 
@@ -769,9 +798,13 @@ void format_markdown(const char *s)
 }
 ```
 
+#### The `noexcept` keyword
+
+As this is a game engine, we do not want expetions to be used at all, thus it's generally a rule of thumb to mark every engine function as `noexcept` and ensure no exceptions are thrown.
+
 #### `stdint.h` types `int8_t`, `uint8_t`, `int32_t`, `uint32_t`, ...
 
-We assume that any compiler compiling the MoonEd project has sensible type sizes, i.e.:
+We assume that any compiler compiling the IceShard project has sensible type sizes, i.e.:
 
 * `char` = 8 bits
 * `short` = 16 bits
@@ -784,12 +817,10 @@ Still, for integer sizes other than 32 bit, the `stdint.h` types should be used 
 
 Note that a lot of the code still uses `short` and `long` though. It has not yet been rewritten to use the new types.
 
-For 32-bit integers, both the ANSI types and the `stdint.h` types can be used:
+For 32-bit integers, the `stdint.h` types are prefered:
 
-* `int`, `int32_t`
-* `unsigned`, `uint32_t`
-
-The ANSI types are currently preferred (but we are considering changing that). Don't use the formats `signed int` or `unsigned int`.
+* `int32_t` instead of `int`
+* `uint32_t` instead of `unsigned`
 
 When you are referring to a string or a buffer of raw data you should still use `char *` rather than `int8_t *`. Use `int8_t` when you want a small integer.
 
@@ -832,10 +863,12 @@ When writing a function that takes a pointer and a size/count as parameters, fol
 void do_something(char *data, unsigned len);
 ```
 
+An even better approach is to use the `core::data_view` as an argument type, which simillary to `std::string_view` holds a pointer to the data and it's size.
+
 #### (type, name)
 
 When writing functions that take a resource type and resource name as arguments, the type argument should precede the name argument, i.e. as in:
 
 ```cpp
-bool can_get(const ResourceID &type, const ResourceID &name) const;
+bool can_get(ResourceID const& type, ResourceID const& name) const;
 ```
