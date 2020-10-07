@@ -56,11 +56,11 @@ Proper including is a way for successful dependency management. To make it as ea
 
 Each project has at least one of them, where `public` is used to hold __only__ interfaces and public functions, and `private` holds all implementation details private, and utility code.
 
-It's not permitted to add source files to the `public` directory, only header and inline files are allowed.
+It's not permitted to add source files to the `public` directory, only header and inline files are permitted.
 
 #### Include rules 
 
-If a header is placed in a `public` directory, no matter if it's the same project or a dependent project, you include it with arrow braces.
+If a header is placed in a `public` directory, no matter if it's the same project or a dependent project, you include it with arrow braces, '<' and '>'.
 
 Same goes for SDK headers and external 3rd party libraries.
 
@@ -71,23 +71,38 @@ Same goes for SDK headers and external 3rd party libraries.
 #include <zlib.h> // 3rdParty library geader
 ```
 
-Accessing a header from the `private` directory can only use the `""` syntax, __but__ it is not alowed to use __..__ backwards paths.
+
+Accessing a header from the `private` directory can only be done using quote `"` syntax.
 
 ```cpp
-// BAD
+// ALLOWED, BUT SHOULD BE AVOIDED
 #include "../private_root_header.hxx"
 
 // GOOD 
 #include "private_implementation/feature_header.hxx"
 ```
 
-#### Providing common tools
+##### Backtracing 
 
-Because of the above `include` rules it seems there is no way to include a common `root` header with helpfull utility functions in sub-directories. But thats not the case.
+It is __NOT ALLOWED__ to use backtracing includes in the `public` directory. 
 
-As far as it comes to include a giant utility header _(which tend to appear)_ it's better to create such utility header for each sub directory and fill with with function declaration used only for this sub-directory.
+It is alowed to use backtracing paths __ONLY__ in source files _(*.cxx, *.c)_, __HOWEVER__ this should be avoided at all cost.
 
-Functions can be declared this way, and implemented in a single place in the private root directory.
+#### Providing common functionality in the `private` directory
+
+Because of the above `include` rules it is hard, and discouraged, to create a single header with a list of all private utility functions.
+
+Whenever possible, try to keep utility implementations as close to the subdirectory implementations as you can to avoid this problem.
+
+```cpp
+// ALLOWED
+#include "../global_common_utils.hxx"
+
+// BETTER
+#include "feature_common_utils.hxx"
+```
+
+However, if there is no way around the problem _(and the review process did not provide a better approach)_, it will also be accepted into the repository.
 
 ### Naming
 
@@ -195,7 +210,22 @@ Circle circle;
 
 If the class was called circle, the variable would have to be called something horrible like `a_circle` or `the_circle` or `tmp`.
 
-#### Name member variables `_like_this`
+##### The math library expection
+
+Currently, the only exception to this rule is the `math` library in the `core` project. 
+
+```cpp
+// Examples
+ice::vec3f position;
+ice::mat4 transform;
+ice::f32 camera_speed;
+```
+
+This is intended, as these types should be seens as __native__ and not as real classes or objects.
+
+However this rule is currently there it might be removed before the beta release of the engine.
+
+#### Name private and protected member variables `_like_this`
 
 Being able to quickly distinguish member variables from local variables is good for readability... and it also allows us to use the most natural syntax for getter and setter methods:
 
@@ -222,14 +252,21 @@ int __age;
 int __age__;
 int _Age;
 
-// Allowed (in any user class or namespace context, excluding `std`)
+// Allowed (in any user type or namespace context, excluding `std`)
 int _age;
 ```
 
+#### Name public member variables `like_this`
+
+__NOTE:__ Public member variables are only allowed in __Plain-Old-Data__ types.
+
+If a member variable is `public` you should ommit the initial undersocre `_` character.
+
+Because it's only allowed to name variables like this in __POD__ types, we don't need care about setters and getter in this context.
 
 #### Name macros ```LIKE_THIS```
 
-It is good to have `#define` macro names really standing out, since macros can be devious traps when it comes to understanding the code. (Like when Microsoft redefines `GetText` to `GetTextA`.)
+It is good to have `#define` macro names really standing out, since macros can be devious traps when it comes to understanding the code. _(Like when Microsoft redefines `GetText` to `GetTextA`.)_
 
 #### Name namespaces `like_this`
 
@@ -238,20 +275,20 @@ This is the most readable syntax, so we prefer this when we don't have any reaso
 Use a single namespace identifier if parent namespaces do not define or declare anything new.
 
 ```cpp
-// BAD
-namespace Foo
+// GOOD
+namespace foo
 {
-    namespace Bar
+    namespace bar
     {
-        namespace FooBar
+        namespace foo_bar
 	{
             ...
 	}
     }
 }
 
-// GOOD
-namespace Foo::Bar::FooBar
+// BETTER
+namespace foo::bar::foo_bar
 {
     ...
 }
@@ -276,7 +313,9 @@ enum CommonValues { CommonValues_Foo, CommonValues_Bar, CommonValues_FooBar };
 
 Again, this is the most readable format, so we choose that when we don't have a reason to do something else.
 
-The `.h` files should be put in the same directory as the `.cpp` files, not in some special "include" directory, for easier navigation between the files.
+Interface header files need to be put in the `public` directory of a project.
+
+Private header and source files should be put in the same directory in the `private` directory of a project.
 
 #### Place only public header files in the `public` directory.
 
@@ -284,11 +323,27 @@ Never place source files in the `public` directory, as its only purpose is to pr
 
 Place only interface header files in the `public` directory, if a header files contains implementation details, keep it in the `private` directory.
 
+When implementing an interface you should define a header and source file for this implementation in the `private` directory.
+
+```
+Interface file -> public/ice/foo_object.hxx
+
+// Place both files in the same directory
+Implementation files -> private/foo_bar_object.hxx, private/foo_bar_object.cxx
+```
+
 #### Using types in code
 
 Always prefer standarized types like `uint32_t` before `int` or `unsigned`.
 
 Use `east const` instead of west const, this allows for better code readability as the only rule to remember is: `const` applies to the type on the left.
+
+```
+int const x; // const int
+int const* x; // const int, pointer
+int* const x; // int, const pointer
+int const* const x; // const int, const pointer
+```
 
 When appliciable use `const` types for local variables or class members.
 
@@ -308,7 +363,7 @@ The getter is called `circle` rather than `get_circle`, since the `get_` prefix 
 
 #### Return types 
 
-Prefer using trailing return types instead of the old syntax. This allows to focus on the function name and it's arguments instead of reading a multiline return type first, which might not even be used.
+Prefer using trailing return types instead of the old function declaration syntax. This allows to focus on the function name and it's arguments instead of reading a multiline return type first, which might not even be used.
 
 The exeption are `bool` and `void` return types, which also have 4 letters and are so common it is of no value to put them at the end.
 
@@ -468,7 +523,7 @@ if (f.valid())
 }
 ```
 
-Local helper lambda functions is another good way of avoiding deep nesting.
+Local helper lambda functions are another good way of avoiding deep nesting.
 
 #### The three bracing styles and when to use them
 
@@ -493,26 +548,36 @@ Consistent bracing style is not super important, but in general the rule should 
 
 ### Indentation and Spacing
 
-#### Use tabs for indentation _(under review for IceShard)_
+#### Use spaces for indentation
 
-Tabs gives users more flexibility in controlling the indentation.
+The engine is currently only allowing 4 space, indentation. 
 
-You should set your editor to display the tabs as four spaces. This provides a good compromise between readability and succinctness.
+If you would like to work on a different indentation, git provides means to checkout code using your indentation but submit the required one.
 
-#### Use spaces to align columns _(problem imposed by tabs, under review)_
+__More on this topic will be available here later__
 
-The start of a line should always be indented with tabs, but if you want to align some other column of code you should use spaces:
+#### Do not use any kind of whitespace alignment 
+
+Alignment is commonly used to make the code easier to read, but generally fails when it comes to maintainability. 
+
+Whenver you start aligning your variables, you will also start making huge `non-changes` reidnenting _(sometimes automatically)_ dozens of lines, just because a new variable is longer that the previous 8.
 
 ```cpp
 void f()
 {
-	int some_var    = 1;
+    // Avoid this
+    int some_var    = 1;
     int another_var = 2;
     int x           = 3;
+    
+    // Keep it as simple as possible
+    int some_var = 1;
+    int another_var = 2;
+    int x = 3;
 }
 ```
 
-This ensures that the columns line up even if a different tab setting is used. Even if we always view the source with four spaces for tabs, external viwers such as diff tools or github may use a different setting. We should ensure that the code always looks good.
+We should ensure that the code always looks good, however looking good does not excuse __unmaintainable__.
 
 #### No extra spaces at end of line
 
@@ -571,6 +636,8 @@ Either use less indentation or write longer lines.
 
 Don't go crazy with line lengths, scrolling to see the end of the line is annoying. Also, make sure not to put very important stuff far to the right where it might be clipped from view.
 
+If needed, introduce additional 'const' variables to hold parts of the result.
+
 #### General guidelines for spaces
 
 * Put a space between `if`, `for`, `while` and the parenthesis that follows.
@@ -613,22 +680,23 @@ void f()
 #endif
 ```
 
-Instead, indent your macros just as you would normal C code:
-_(Under review)_
+Instead, `indent` your macros just as you would normal C code:
+
+The indentation should start after the `#` sign. 
 
 ```cpp
 void f()
 {
-    #ifdef _WIN32
-        #define RUNNING_WINDOWS
-        #ifdef PRODUCTION
+#   ifdef _WIN32
+#       define RUNNING_WINDOWS
+#       ifdef PRODUCTION
             bool print_error_messages = true
-        #else
+#       else
             bool print_error_messages = false
-        #endif
-    #else
+#       endif
+#   else
         bool win32 = false
-    #endif
+#   endif
 }
 ```
 
@@ -696,7 +764,7 @@ switch (count % 8)
 }
 ```
 
-#### Avoid boilerplate comments
+#### Avoid boilerplate comments _(under review)_
 
 The purpose of comments is to convey information. Avoid big cut-and-paste boilerplate comments in front of classes and functions. Make the comments succint and to the point. There is no point in repeating information in the comment that is already in the function header, like this:
 
@@ -737,7 +805,7 @@ I.e. avoid fluff pieces like this:
 static inline float cost(const Vector3 &p1, const Vector3 &p2) const;
 ```
 
-MoonEd does not use Doxygen, so avoid using Doxygen markup in your function comments. Instead write them in plain English. Note that we *used to* use Doxygen, so there is a fair ammount of Doxygen markup still left in the code base. This will be cleaned up over time.
+IceShard does not use Doxygen, so avoid using Doxygen markup in your function comments. Instead write them in plain English. Note that we *used to* use Doxygen, so there is a fair ammount of Doxygen markup still left in the code base. This will be cleaned up over time.
 
 Also, since we are not using Doxygen, avoid using `\\\` for comments, just use plain `\\` instead.
 
