@@ -1,4 +1,4 @@
-# IceShard conding guidelines
+# IceShard coding guidelines
 
 This repository is used to define coding guidelines for languages used by IceShard projects.
 
