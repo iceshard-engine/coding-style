@@ -1,44 +1,37 @@
 This Coding Style based on https://github.com/niklasfrykholm/blog/blob/master/reference/coding-style.md. Changes where made over time resulting in the current version.
 
-# Coding Style
+# C++ Coding Style
 
-This document describes the coding style you should use when working on code for the IceShard engine and tools.
+This document describes the style you should use when working on code within IceShard repositories.
 
 ## Table of Contents
 
-* [C++ Code](#c++-code)
-  * [Introduction](#introduction)
-  * [Includes and dependencies](#includes-and-dependencies)
-  * [Naming](#naming)
-  * [Braces and Scopes](#braces-and-scopes)
-  * [Indentation and Spacing](#indentation-and-spacing)
-  * [Comments](#comments)
-  * [Design and Implementation Issues](#design-and-implementation-issues)
-  * [Miscellaneous Tidbits](#miscellaneous-tidbits)
-* [Jinx scripts](#jinx-scripts)
-* [Lua Scripts](#lua-scripts)
-* [Asset metadata](#asset-metadata)
-* 
+* [Introduction](#introduction)
+* [Includes and dependencies](#includes-and-dependencies)
+* [Naming](#naming)
+* [Braces and Scopes](#braces-and-scopes)
+* [Indentation and Spacing](#indentation-and-spacing)
+* [Comments](#comments)
+* [Design and Implementation](#design-and-implementation)
+* [Miscellaneous Tidbits](#miscellaneous-tidbits)
 
-## C++ Code
+This section is dedicated for C++ code, however some things can be seens as generic and good to follow in different languages.
 
-This section describes the coding style for C++ code, and also general coding guidelines that are useful regardless of what languge you are using.
+## Introduction
 
-### Introduction
+### **A common style is good**
 
-#### A common style is good
+A common style is useful. It makes it easier to communicate, and it makes the code easier to read.
 
-A common coding style is useful. It makes it easier to communicate, and it makes the code easier to read.
-
-#### Some choices are arbitrary
+### **Some choices are arbitrary**
 
 Some of the style choices described in this manual are (at least according to me) very well motivated, other are just arbitrary. Sometimes there is no reason to pick one particular style over another, but it is still useful to mandate a specific choice to ensure a consistent style.
 
-#### Some things don't matter
+### **Some things don't matter**
 
 The purpose of this style guide is not to cover every possible situation. If something is not covered by this guide it is probably something that doesn't matter that much and you are free to use whatever style you are most accustomed to. If you think something should be in the guide, just bring it up to discussion.
 
-#### Avoid revision wars
+### **Avoid revision wars**
 
 If you see something that obviously does not follow the standard in a source file you should feel free to change it. If you see something that perhaps does not follow the standard, but you are not sure, it is better to leave it.
 
@@ -48,92 +41,83 @@ Avoid changing the style back and forth in the same piece of code. If you cannot
 
 If you disagree strongly with one of the rules in this style guide, you should propose a change to the rule rather than silently rebel.
 
-### Includes and dependencies
+## Includes and dependencies
 
 Proper including is a way for successful dependency management. To make it as easy as possible there are a few rules in place in all projects which should help you find around the codebase.
 
-#### The `public` and `private` directories
+### **The `public` and `private` directories**
 
-Each project has at least one of them, where `public` is used to hold __only__ interfaces and public functions, and `private` holds all implementation details private, and utility code.
+Each project has at least one directory:
+- `public` is used to hold __only__ interfaces and public functions.
+  - You are not allowed to include a `private` file from a `public` file.
+- `private` contains implementations and private helper _(utility)_ source files. These files are only accessible from the owning project.
 
-It's not permitted to add source files to the `public` directory, only header and inline files are permitted.
+It's not permitted to add compilation unit files to the `public` directory. Only header _(.hxx)_ and inline _(.inl)_ files are allowed.
 
-#### Include rules 
+### **Include rules**
 
-If a header is placed in a `public` directory, no matter if it's the same project or a dependent project, you include it with arrow braces, '<' and '>'.
+If a header is placed in a `public` directory, no matter if it's the same project or a dependent project, you include it with arrow braces.
 
 Same goes for SDK headers and external 3rd party libraries.
 
 ```cpp
-#include <project/public_header.hxx> // Same project 'public` header 
-#include <other/public_header.hxx> // Other dependency project 'public` header 
-#include <Windows.h> // OS SDK header
-#include <zlib.h> // 3rdParty library geader
+// Same project public header
+#include <project/public_header.hxx>
+// Dependent project public header
+#include <other/public_header.hxx>
+
+// OS SDK header
+#include <Windows.h>
+
+// 3rdParty library header
+#include <zlib.h>
 ```
 
-
-Accessing a header from the `private` directory can only be done using quote `"` syntax.
+Accessing headers from the `private` directory can only be done using the `"header/path.hxx"` syntax. It should be avoided to use __`../`__ backtracing paths if possible.
 
 ```cpp
-// ALLOWED, BUT SHOULD BE AVOIDED
-#include "../private_root_header.hxx"
+// BAD
+#include <private_header.hxx>
+#include <../private_header.hxx>
 
-// GOOD 
+// OK
+#include "../private_header.hxx"
+
+// GOOD
 #include "private_implementation/feature_header.hxx"
 ```
 
-##### Backtracing 
-
-It is __NOT ALLOWED__ to use backtracing includes in the `public` directory. 
-
-It is alowed to use backtracing paths __ONLY__ in source files _(*.cxx, *.c)_, __HOWEVER__ this should be avoided at all cost.
-
-#### Providing common functionality in the `private` directory
-
-Because of the above `include` rules it is hard, and discouraged, to create a single header with a list of all private utility functions.
-
-Whenever possible, try to keep utility implementations as close to the subdirectory implementations as you can to avoid this problem.
-
-```cpp
-// ALLOWED
-#include "../global_common_utils.hxx"
-
-// BETTER
-#include "feature_common_utils.hxx"
-```
-
-However, if there is no way around the problem _(and the review process did not provide a better approach)_, it will also be accepted into the repository.
-
-### Naming
-
-#### Naming is important
+## Naming
 
 Naming is a fundamental part of programming. The ease-of-use and "feeling" of an API depends a lot on having good names.
 
 Furthermore, names are harder to change than implementations. This is especially true for names that are exported outside the executable itself, such as names for script functions and parameters in JSON files. For this reason, some care should be taken when selecting a name.
 
-#### Names should provide all necessary information, nothing more
+### **Names should provide all necessary information, nothing more**
 
-A name should provide all the necessary information to understand what a function or variable is doing but no more than that. I.e., it should not contain redundant information or information that is easily understood from the context (such as the class name).
+A name should provide all the necessary information to understand what a function or variable is doing but no more than that. I.e., it should not contain redundant information or information that is easily understood from the context.
 
 ```cpp
 // BAD: Name provides too little information
 char *pstoc(char *);
 float x;
+int s;
 void Image::draw(float, float);
 
 // BAD: Name provides too much information
 char *convert_string_in_pascal_string_format_to_c_string_format(char *);
 float the_speed;
+int time_elapsed_in_seconds;
 void Image::draw_image_at(float, float);
 
-// GOOD: Just the right amount
+// BETTER: Just the right amount
 char *pascal_string_to_c(char *s);
 float speed;
+int elapsed_seconds;
 void Image::draw_at(float x, float y);
 ```
 
-If you cannot come up with a good name for something -- think harder and consult your colleagues. Never use a name that you know is bad.
+If you cannot come up with a good name for something -- consult your colleagues or look up synonyms. Never use a name that you know is bad.
 
 ```cpp
 // BAD:
@@ -145,87 +129,90 @@ void link2();
 Stuff the_thing;
 ```
 
-#### A bigger scope warrants a more descriptive name
+### **A bigger scope warrants a more descriptive name**
 
 The more visible a variable is (the larger scope it has) the more descriptive its name needs to be, because less information is provided by the context.
 
-Consider the number of players in a network game. In a small local loop, it is fine to call the variable `n` because there is not much to confuse it with, and the context immediately shows where the variable is coming from.
+Consider the number of players in a network game. In a small local loop, it is fine to call the variable `num` because there is not much to confuse it with, and the context immediately shows where the variable is coming from.
 
 ```cpp
-int n = num_players();
-for (int i = 0; i < n; ++i)
+int num = player_count();
+for (int idx = 0; idx < num; ++idx)
     ...
 ```
 
-If it is a function in the network class we need to be more verbose, because `n` could mean any number of things in that context.
+If it is a static variable in the network class we need to be more verbose, because `n` could mean any number of things in that context.
 
 ```cpp
-int Network::num_players();
+class Network
+{
+    ...
+    int _connected_player_count;
+    ...
+}
 ```
 
 If it is a global variable, we must be even more verbose, because we no longer have a Network class context that tells us the variable has something to do with the network:
 
 ```cpp
-int _num_players_in_network_game;
+int NetworkConnectedPlayerCount;
 ```
 
-**NOTE:** Global variables should be avoided. If you really need a global variable, you should hide it behind a function interface (e.g., `console_server::get()`). This reduces the temptation of misusing the variable.
+_NOTE: Global variables should be avoided. If you really need a global variable, you should hide it behind a function interface (e.g., `console_server::get()`). This reduces the temptation of misusing the variable._
 
-#### Do not use abbreviations in names
+### **Avoid use of abbreviations in names.**
+
+_NOTE: This rule is applied to public sybols, it does not apply to local function scope variables or private members._
 
 There are two problems with abbreviations in names:
 
 * It gets harder to understand what the name means. This is especially the case with extreme and nonsensical abbreviations like `wbs2mc()`.
-* Once you start to mix abbreviated and non-abbreviated names, it becomes hard to remember which names where abbreviated and how. It is not hard to understand that `world_pos` means `world_position`. But it can be hard to remember whether the function was called `world_pos` or `world_position` or something else. Never using abbreviation makes it much easier to guess what a function should be called.
+* Mixing abbreviated and non-abbreviated names introduces inconsistency in the API. Sometimes you gonna see a function called `set_pos` and in pother places you will see `world_position`, which can get ugly. Keeping everything consistent should be the priority. `set_position(world_position())`
 
-The general rule is "do not use any abbreviations at all". The only allowed exception is:
-
-* `num_`
-
-which means number of, e.g. `num_players()` instead of `number_of_players()`.
-
-Note that the rule against abbreviations only applies to exported symbols. A local variable can very well be called `pos` or `p`.
-
-#### Use sensible names
+### **Use sensible names**
 
 * Spell your names correctly.
-* Do not write the words `to` and `for` as `2` and `4`.
+* Do not "simplify" the words `to` and `for` as numbers `2` and `4`.
 * All names and comments should be in American English.
 
-#### Name functions and variables `like_this()`
+### **Name functions, arguments and variables `like_this()` _(snake case)_**
 
 Use lower case characters and underscores where you would put spaces in a normal sentence.
 
-This style is preferred for functions and variables, because it is the most readable one (most similar to ordinary language) and functions and variables are the things we have most of.
+This style is preferred for functions and variables, because it is the most readable one _(most similar to ordinary language)_. Because functions and variables are the things we have most of it helps reading the code.
 
 Do not use any kind of Hungarian notation when naming variables and functions. Hungarian serves little purpose other than making the code less readable.
 
-#### Name classes `LikeThis`
+#### **Getters and setter functions**
+
+Getter and setter functions should look like this.
+
+```cpp
+auto circle() const -> Circle const& { return _circle; }
+void set_circle(Circle& circle) { _circle = circle; }
+```
+
+The getter is called `circle` rather than `get_circle`, since the `get_` prefix is superfluous. However, we use a `set_` prefix to emphasize that we are changing the state of the object.
+
+The `get_` prefix can be used when a method needs to do additional work to return the value, as **get** is also an action verb in english. However it's still recommented to use `query_`, `search_` and similar instead.
+
+### **Name classes `LikeThis` _(camel case)_**
 
 It is good to use a different standard for classes than variables, because it means that we can give temporary variables of a class good names:
 
 ```cpp
+// GOOD
+class Circle { ... };
 Circle circle;
+
+// BAD
+class circle { ... };
+circle a_circle;
 ```
 
-If the class was called circle, the variable would have to be called something horrible like `a_circle` or `the_circle` or `tmp`.
+If the class was called `circle`, the variable would have to be called something horrible like `a_circle` or `the_circle` or `tmp`.
 
-##### The math library expection
-
-Currently, the only exception to this rule is the `math` library in the `core` project. 
-
-```cpp
-// Examples
-ice::vec3f position;
-ice::mat4 transform;
-ice::f32 camera_speed;
-```
-
-This is intended, as these types should be seens as __native__ and not as real classes or objects.
-
-However this rule is currently there it might be removed before the beta release of the engine.
-
-#### Name private and protected member variables `_like_this`
+### **Name member variables `_like_this` _(snake case)_**
 
 Being able to quickly distinguish member variables from local variables is good for readability... and it also allows us to use the most natural syntax for getter and setter methods:
 
@@ -236,12 +223,13 @@ void set_circle(Circle const& circle) { _circle = circle; }
 
 A single underscore is used as a prefix, because a prefix with letters in it (like `m_`) makes the code harder to read.
 
-This _sentence can _be _easily read _even though _it _has _extra underscores.
+    This _sentence can _be _easily read _even though _it _has _extra underscores.
 
-But m_throw in m_some letters m_and it m_is m_not so m_easy m_anymore, m_kay.
+    But m_throw in m_some letters m_and it m_is m_not so m_easy m_anymore, m_kay.
 
 Also, using underscores makes the member variables stand out more, since there could be other variables starting with m.
 
+**!! ATTENTION !!**
 * Take care while naming member variables with a underscore
 * The standard reserves all names using two or more underscores in a row and names starting with a underscore followed by a Big letter.
 * It also reserves all names starting with a underscore in the global namespace / file scope.
@@ -252,49 +240,41 @@ int __age;
 int __age__;
 int _Age;
 
-// Allowed (in any user type or namespace context, excluding `std`)
+// Allowed (in any user class or namespace context, excluding `std::`)
 int _age;
 ```
 
-#### Name public member variables `like_this`
+### **Name macros `LIKE_THIS` _(capital snake case)_**
 
-__NOTE:__ Public member variables are only allowed in __Plain-Old-Data__ types.
+It is good to have `#define` macro names really standing out, since macros can be devious traps when it comes to understanding the code. _(Like when Microsoft redefines `GetText` to `GetTextA`)_
 
-If a member variable is `public` you should ommit the initial undersocre `_` character.
-
-Because it's only allowed to name variables like this in __POD__ types, we don't need care about setters and getter in this context.
-
-#### Name macros ```LIKE_THIS```
-
-It is good to have `#define` macro names really standing out, since macros can be devious traps when it comes to understanding the code. _(Like when Microsoft redefines `GetText` to `GetTextA`.)_
-
-#### Name namespaces `like_this`
+### **Name namespaces `like_this` _(snake case)_**
 
 This is the most readable syntax, so we prefer this when we don't have any reason to do otherwise.
 
 Use a single namespace identifier if parent namespaces do not define or declare anything new.
 
 ```cpp
-// GOOD
+// BAD
 namespace foo
 {
     namespace bar
     {
         namespace foo_bar
-	{
+        {
             ...
-	}
+        }
     }
 }
 
-// BETTER
+// GOOD
 namespace foo::bar::foo_bar
 {
     ...
 }
 ```
 
-#### Name enums and enum values `LikeThis`
+### **Name enums and enum values `LikeThis` _(camel case)_**
 
 Enums are types, just as classes and structs and should follow the same naming convention.
 
@@ -309,133 +289,29 @@ Enums not using the `enum class` feature are required to prefix each value with 
 enum CommonValues { CommonValues_Foo, CommonValues_Bar, CommonValues_FooBar };
 ```
 
-#### Name source files `like_this.cxx`, and header files `like_this.hxx`
+### **Name source files `like_this.cxx`, and header files `like_this.hxx`**
 
 Again, this is the most readable format, so we choose that when we don't have a reason to do something else.
 
-Interface header files need to be put in the `public` directory of a project.
+### **Using common types in code**
 
-Private header and source files should be put in the same directory in the `private` directory of a project.
+When developing in the `iceshard-engine` project use the introduced project types, like: `ice::u32`, `ice::f32`, etc...
 
-#### Place only public header files in the `public` directory.
+Otherwise prefer standarized types like `uint32_t` before `int` or `unsigned`.
 
-Never place source files in the `public` directory, as its only purpose is to provide an interface for your library.
-
-Place only interface header files in the `public` directory, if a header files contains implementation details, keep it in the `private` directory.
-
-When implementing an interface you should define a header and source file for this implementation in the `private` directory.
-
-```
-Interface file -> public/ice/foo_object.hxx
-
-// Place both files in the same directory
-Implementation files -> private/foo_bar_object.hxx, private/foo_bar_object.cxx
-```
-
-#### Using types in code
-
-Always prefer standarized types like `uint32_t` before `int` or `unsigned`.
-
-Use `east const` instead of west const, this allows for better code readability as the only rule to remember is: `const` applies to the type on the left.
-
-```
-int const x; // const int
-int const* x; // const int, pointer
-int* const x; // int, const pointer
-int const* const x; // const int, const pointer
-```
+Use `east const` instead of `const west`, this allows for better code readability as the only rule to remember is: `const` applies to the type on the left.
 
 When appliciable use `const` types for local variables or class members.
 
-Use `constexpr` for simple static class members or `const` instead. 
-Try to avoid static mutable values, because this introduces a lot of problems in concurrent code.
+Use `constexpr` for compile time available values.
 
-#### Standard functions
+Avoid static mutable values, because this introduces a lot of problems in concurrent code.
 
-Getter and setter functions should look like this.
-
-```cpp
-auto circle() const -> Circle const& { return _circle; }
-void set_circle(Circle& circle) { _circle = circle; }
-```
-
-The getter is called `circle` rather than `get_circle`, since the `get_` prefix is superfluous. However, we use a `set_` prefix to emphasize that we are changing the state of the object.
-
-#### Return types 
-
-Prefer using trailing return types instead of the old function declaration syntax. This allows to focus on the function name and it's arguments instead of reading a multiline return type first, which might not even be used.
-
-The exeption are `bool` and `void` return types, which also have 4 letters and are so common it is of no value to put them at the end.
-
-```cpp
-// OK, but not prefered
-void bar_task();
-bool is_foobar_done();
-
-FooResult foo_task();
-
-std::unique_ptr<WithAResultType, AndACustomDeleterType> get_future();
-
-// Better
-void bar_task();
-bool is_foobar_done();
-
-auto foo_task() -> FooResult;
-
-auto get_future() -> std::unique_ptr<WithAResultType, AndACustomDeleterType>;
-```
-
-#### Const the world
-
-Because C++ does implicitly allow to modify everything _(not like Rust)_ try to `const` eveything that is a good candidate. 
-
-If you need to access something, __DO NOT EVER__ `const_cast` it away, search for another way to access the mutable version of that value or if you created the interface, change it to a mutable one. 
-
-You can also always provide two method definitions in a class.
-
-```cpp
-class Object
-{
-    auto some_value() -> int&; // Can be only accessed on non-const Object's.
-    auto some_value() const -> int const&; // Can be only accessed on const Object's.
-};
-```
-
-#### C++ Attributes
-
-Make use of the new C++ attributes like `[[nodiscard]]` and `[[maybe_unused]]`.
-
-```cpp
-[[nodiscard]]
-auto create_expensive_object() -> std::unique_ptr<ExpensiveObject>;
-
-void do_something_on_windows([[maybe_unused]] int some_param)
-{
-#if IS_WINDOWS_BUILD
-    // `some_param` only used on windows builds
-#endif
-}
-```
-
-However because IceShard does quite heavily embrace modern C++ a lot of defines are replaced or also available as `constexpr` values. In such scenarios you don't need to mark parameters as `[[maybe_unused]]` if writing platform specific code _(unless it does not use platform specific SDK's)_
-
-```cpp
-void do_something_on_windows(int some_param)
-{
-    // if the expression turns to be false, the compiler still parses it's body and marks `some_param` as used.
-    // This will not trigger an `unused parameter` warning or error.
-    if constexpr(is_windows_build)
-    {
-        // `some_param` only used on windows builds
-    }
-}
-```
-
-### Braces and Scopes
+## Braces and Scopes
 
 Use braces to increase readability in nested scopes
 
-Instead of
+Instead of:
 
 ```cpp
 // BAD
@@ -444,7 +320,7 @@ while (a)
         c;
 ```
 
-Write
+Write:
 
 ```cpp
 while (a)
@@ -456,9 +332,9 @@ while (a)
 }
 ```
 
-Only the innermost scope is allowed to omit its braces, but try to _(em-)_brace everything.
+Only the innermost scope is allowed to omit its braces, but should still be avoided.
 
-#### Fit matching braces on a single screen
+### **Fit matching braces on a single screen**
 
 The opening and closing of a brace should preferably fit on the same screen of code to increase readability.
 
@@ -468,7 +344,7 @@ Function definitions can sometimes cover more than one screen -- if they are cle
 
 `while`, `for` and `if` statements should always fit on a single screen, since otherwise you have to scroll back and forth to understand the logic.
 
-Use `continue`, `break` or even (gasp) `goto` to avoid deep nesting.
+Use `continue`, `break` to avoid deep nesting. `goto` is **disallowed**.
 
 Code that is indented four or five times can be very hard to read. Often such indentation comes from a combination of loops and `if`-statements:
 
@@ -477,7 +353,8 @@ Code that is indented four or five times can be very hard to read. Often such in
 for (int i = 0; i < parent->num_children(); ++i)
 {
     Child child = parent->child(i);
-    if (child->is_cat_owner()) {
+    if (child->is_cat_owner())
+    {
         for (int j = 0; j < child->num_cats(); ++j)
         {
             Cat cat = child->cat(j);
@@ -504,10 +381,9 @@ for (int i = 0; i < parent->num_children(); ++i)
         ...
 ```
 
-Excessive indentation can also come from error checking:
+Excessive indentation can also come from error checking, however this case requires probably more thought to make it clearer.
 
 ```cpp
-// BAD
 File f = open_file();
 if (f.valid())
 {
@@ -523,9 +399,9 @@ if (f.valid())
 }
 ```
 
-Local helper lambda functions are another good way of avoiding deep nesting.
+Using local lambda functions is another good way of avoiding deep nesting.
 
-#### The three bracing styles and when to use them
+### **The two bracing styles and when to use them**
 
 There are two bracing styles used:
 
@@ -546,48 +422,40 @@ This second is used for any other case like: while loops, for-loops, class decla
 
 Consistent bracing style is not super important, but in general the rule should be that the more that is enclosed by the brace, the more space there should be in the brace.
 
-### Indentation and Spacing
+## Indentation and Spacing
 
-#### Use spaces for indentation
+### **Use spaces for indentation**
 
-The engine is currently only allowing 4 space, indentation. 
+Spaces are used as it's constant accross most editors. Flexibility in controlling the indentation can be achieved using git pre and post hooks for local repository setup.
 
-If you would like to work on a different indentation, git provides means to checkout code using your indentation but submit the required one.
+### **Avoid aligning any entities in code**
 
-__More on this topic will be available here later__
-
-#### Do not use any kind of whitespace alignment 
-
-Alignment is commonly used to make the code easier to read, but generally fails when it comes to maintainability. 
-
-Whenver you start aligning your variables, you will also start making huge `non-changes` reidnenting _(sometimes automatically)_ dozens of lines, just because a new variable is longer that the previous 8.
+Aligning should be avoided. It does not really serve any purpose and work required to keep it up-to-date is not justified.
 
 ```cpp
 void f()
 {
-    // Avoid this
+    // DONT DO THIS
     int some_var    = 1;
     int another_var = 2;
     int x           = 3;
-    
-    // Keep it as simple as possible
+
+    // OK
     int some_var = 1;
     int another_var = 2;
     int x = 3;
 }
 ```
 
-We should ensure that the code always looks good, however looking good does not excuse __unmaintainable__.
-
-#### No extra spaces at end of line
+### **No extra spaces at end-of-line**
 
 There should be no whitespace at the end of a line. Such invisible whitespace can lead to merge issues.
 
-Empty lines are __not__ an exception. Empty lines may not contain any tabs or spaces. 
+Empty lines are __not__ an exception. Empty lines may not contain any tabs or spaces.
 
-NOTE: There are plugins, settings and other means to see these extra spaces and even remove them on saving in various text editors.
+_NOTE: There are plugins, settings and other means to see these extra spaces and even remove them on saving in various text editors._
 
-#### Think about evaluation order when placing spaces
+### **Think about evaluation order when placing spaces**
 
 For statements, put a space between keywords and parenthesis, put a space before braces on the same line. Do not put any space before a semicolon.
 
@@ -604,20 +472,9 @@ Placement of spaces in expressions is not that important. We generally tend to p
 z = x * y(7) * (3 + p[3]) - 8;
 ```
 
-You can use a more terse or a more loose style if you want to, but make sure that the placement of spaces reflects the evaluation order of the expression. I.e. begin by removing spaces around operators that have a higher order of precedence. This is OK:
+You can use a more terse or a more loose style if you want to, but make sure that the placement of spaces reflects the evaluation order of the expression. I.e. begin by removing spaces around operators that have a higher order of precedence.
 
-```cpp
-z = x*y(7)*(3 + p[3]) - 8;
-```
-
-Because * has higher precedence than - and =. This is confusing and not OK:
-
-```cpp
-// BAD
-z=x * y(7) * (3+p [3])-8;
-```
-
-#### Make lines reasonably long
+### **Make lines reasonably long**
 
 A lot of style guides say that lines should never be more than 80 characters long. This is overly restrictive. We all have displays that can show more than 80 characters per line and nobody prints their code anymore.
 
@@ -636,9 +493,7 @@ Either use less indentation or write longer lines.
 
 Don't go crazy with line lengths, scrolling to see the end of the line is annoying. Also, make sure not to put very important stuff far to the right where it might be clipped from view.
 
-If needed, introduce additional 'const' variables to hold parts of the result.
-
-#### General guidelines for spaces
+### **General guidelines for spaces**
 
 * Put a space between `if`, `for`, `while` and the parenthesis that follows.
 * Do not put a space between the function name and the parenthesis in a function call.
@@ -660,7 +515,7 @@ memset ( &a,0,sizeof(a) );
 void f(const T & t)
 ```
 
-#### Indent `#if` statements
+### **Indent `#if` statements**
 
 By default, the visual studio editor left flushes all preprocessing macros. This is idiotic and makes the code really hard to read, especially when the macros are nested:
 
@@ -680,9 +535,7 @@ void f()
 #endif
 ```
 
-Instead, `indent` your macros just as you would normal C code:
-
-The indentation should start after the `#` sign. 
+Instead, indent your macros just as you would normal C code:
 
 ```cpp
 void f()
@@ -700,17 +553,17 @@ void f()
 }
 ```
 
-In visual studio go to **Tools > Text Editor > C/C++ > Tabs** and change `Indenting` from `Smart` to `Block` to prevent the default indenting.
+## Comments
 
-### Comments
+### **Use `//` for descriptive comments `/*` for disabling code**
 
-#### Use `//` for descriptive comments `/*` for disabling code
+`//!` should be used for documentation purposes as it's recognized by tools like `doxygen`.
 
 `//` comments are better for comments that you want to leave in the code, because they don't have any nesting problems, it is easy to see what is commented, etc.
 
 `/*` is useful when you want to quickly disable a piece of code.
 
-#### Do not leave disabled code in the source
+### **Do not leave disabled code in the source**
 
 Commenting out old bad code with `/* ... */` is useful and necessary.
 
@@ -718,7 +571,7 @@ It can be useful to leave the old commented out code in the source file *for a w
 
 Having a lot of old, unused, commented out code in the source files makes them harder to read, because you constantly ask yourself why was this commented out, maybe the solution to my problem lies in this commented out code, etc. Source control already keeps a version history, we don't need to keep old code in comments.
 
-#### Use comments as hints to the reader
+### **Use comments as hints to the reader**
 
 The main source of information about what the code does should be the code itself. The code is always up-to-date, it doesn't lie and no extra effort is required to maintain it. You should not need to add comments that explain what the code does:
 
@@ -764,15 +617,15 @@ switch (count % 8)
 }
 ```
 
-#### Avoid boilerplate comments _(under review)_
+### **Avoid boilerplate comments**
 
 The purpose of comments is to convey information. Avoid big cut-and-paste boilerplate comments in front of classes and functions. Make the comments succint and to the point. There is no point in repeating information in the comment that is already in the function header, like this:
 
 ```cpp
 // BAD
-// p1 a point
-// p2 another point
-// Returns the distance between p1 and p2
+//! Returns the distance between p1 and p2
+//! p1 a point
+//! p2 another point
 float distance(const Vector3 &p1, const Vector3 &p2);
 ```
 
@@ -780,7 +633,7 @@ You don't have to comment every single function in the interface. If the functio
 
 ```cpp
 // BAD
-// Returns the speed.
+//! Returns the speed.
 float speed();
 ```
 
@@ -805,13 +658,12 @@ I.e. avoid fluff pieces like this:
 static inline float cost(const Vector3 &p1, const Vector3 &p2) const;
 ```
 
-IceShard does not use Doxygen, so avoid using Doxygen markup in your function comments. Instead write them in plain English. Note that we *used to* use Doxygen, so there is a fair ammount of Doxygen markup still left in the code base. This will be cleaned up over time.
+Currently `IceShard` does not make use of Doxygen.
+However you are allowed to use Doxygen markup because many editors or plugins make use of these to provide better tooltips.
 
-Also, since we are not using Doxygen, avoid using `\\\` for comments, just use plain `\\` instead.
+It is still preferet to just use the plain `Markdown` syntax if you need to hilight specific words or phrases in your comment.
 
-If you need to add markup to your comments to highlight specific words, you should use Markdown syntax.
-
-#### Don't put high level documentation in source code comments
+### **Don't put high level documentation in source code comments**
 
 Source code comments are not and should not be the only kind of documentation. Source code comments are good for documenting details that are directly related to the code, such as reference documentation for an API.
 
@@ -819,15 +671,15 @@ Aside from detail documentation, systems also need high level documentation. The
 
 High level documentation should not be put in source code comments. That makes it fragmented and hard to read. Instead, it should be created as an HTML document, where the user can read it as a single continuous text with nice fonts, illustrations, examples, etc.
 
-#### Put interface documentation in the .h file
+### **Put interface documentation in the .hxx file**
 
-Put interface (function and class documentation) in the .h file. This makes it easier to find all the relevant interface documentation for someone browsing the .h files.
+Put interface _(function and class documentation)_ in the .hxx file. This makes it easier to find all the relevant interface documentation for someone browsing the .hxx files.
 
-A drawback of this is that the .h files will become bigger and harder to grasp, but that is a price we are willing to pay.
+A drawback of this is that the .hxx files will become bigger and harder to grasp, but that is a price we are willing to pay.
 
-### Design and Implementation Issues
+## Design and Implementation
 
-#### Optimize wisely
+### **Optimize wisely**
 
 All the code in the engine does not have to be super optimized. Code that only runs once-per-frame has very little impact on a game's performance. Do not spend effort on optimizing that code. Consider what are the heavy-duty number-crunching parts of the code and focus your efforts on them. Use the profiler as a guide to finding the parts of the code that matter.
 
@@ -835,42 +687,67 @@ Be very wary of sacrificing simplicity for code efficiency. Your code will most 
 
 Be aware that the rules of optimization have changed. Cycle counts matter less. Memory access patterns and parallelization matter more. Write your optimizations so that they touch as little memory as possible and as linearly as possible. Write the code so that it can be parallelized and moved to SPUs. Focus on data layouts and data transforms. Read up on data oriented design.
 
-### C++11 Features
+### **Make use of pure interfaces**
+
+On good practice is to use pure interfaces. This generally forces you to think about what needs to be visible and what is an implementation detail.
+
+Having good interfaces allows to make the API cleaner and more understandable for the end user. It also allows for more flexibility, as you are not forced to use members from yor parent type.
+
+
+### **RAII and Dependency injection**
+
+Always design your objects in the **RAII** principle. If an object is created, it needs to be fully constructed and ready for use. You should avoid any `init` and `shutdown` like behavior, as this leads to overly complicated initialization scenarios.
+
+Additionally when you are depending on a different interface / API, always take a reference to it and use the stored pointer / reference. This enforces proper use of APIs and solves problems with hidden dependencies as you need to provide the interface the object depends on during construction.
+
+If you also follow **RAII** properly, you won't end up with dependencies getting destroyed before the objects that they use.
+
+_NOTE: If we would use a Singleton inside a method implementation, there is no information about this relation in the public interface._
+
+#### Factory functions
+
+If the creation of an object is complicated or consists of multiple stages, create a factory function for it. Such a function is allowed to return a nullptr when construction fails, or a fully constructor object.
+
+You can initialize your dependencies and object in the factory function however you like. The only requirement is to return an object that works perfectly with the **RAII** principle. That means, that if the objects gets destroyed it will also release all dependent resources that have a shorter lifetime that the object itself.
+
+## C++11 Features
 
 The IceShard engine is compiled using C\+\+20, and aims to use only features up to this standard, nothing above. The features listed below are the C\+\+17 features that are known to be working and that we recommend using.
 
-#### `auto`
+### **Keyword: `auto`**
 
-Using the `auto` type is recommended for declaring complex types such as `Array<Item>::const_iterator`. For simple standard types, such as `int` or `char *` it is usually clearer not to use `auto`.
+Outside of function signatures the use of the `auto` keyword should be avoided.
 
-#### `decltype()`
+It can be used when declaring variables of complex types such as `Array<Item>::const_iterator`.
+
+### **Keyword: `decltype()`**
 
 Use this if you need it.
 
-#### Range based for loops
+### **Range based for-each loops**
 
 Use this instead of regular for loops where it makes the code simpler to read.
 
-#### lambda functions
+### **Lambda functions**
 
-Use lambda functions whenever you need a small local helper function in a function.
+Use lambda functions whenever you need a small local helper function in local scope.
 
 ```cpp
 void format_markdown(const char *s)
 {
-	auto is_header = [](const char *line) {
-    	return line[0] == '#';
+    auto has_macro = [](const char *line) {
+        return line[0] == '#';
     };
 
     ...
 }
 ```
 
-#### The `noexcept` keyword
+### **Keyword: `noexcept`**
 
 As this is a game engine, we do not want expetions to be used at all, thus it's generally a rule of thumb to mark every engine function as `noexcept` and ensure no exceptions are thrown.
 
-#### `stdint.h` types `int8_t`, `uint8_t`, `int32_t`, `uint32_t`, ...
+### **`stdint.h` types `int8_t`, `uint8_t`, `int32_t`, `uint32_t`, ...**
 
 We assume that any compiler compiling the IceShard project has sensible type sizes, i.e.:
 
@@ -883,8 +760,6 @@ Still, for integer sizes other than 32 bit, the `stdint.h` types should be used 
 * Use: `int8_t`, `int16_t`, `uint64_t`, ...
 * Rather than: `char`, `short`, `size_t`, `long long`, ...
 
-Note that a lot of the code still uses `short` and `long` though. It has not yet been rewritten to use the new types.
-
 For 32-bit integers, the `stdint.h` types are prefered:
 
 * `int32_t` instead of `int`
@@ -892,23 +767,17 @@ For 32-bit integers, the `stdint.h` types are prefered:
 
 When you are referring to a string or a buffer of raw data you should still use `char *` rather than `int8_t *`. Use `int8_t` when you want a small integer.
 
-#### `override`, `final`
+### **Keywords: `override`, `final`**
 
 These keywords should be used to document the intent of virtual methods.
 
-#### `enum class`
+### **Keyword: `static_assert`**
 
-Most enums should be written to use `enum class` to avoid the leaky scope of regular enums.
+Use this everywhere possible to provide compile time errors instead of runtime bugs.
 
-#### `static_assert`
+## Miscellaneous Tidbits
 
-Use this everywhere possible to detect compile time errors.
-
-### Miscellaneous Tidbits
-
-#### `#pragma once`
-
-Use `#pragma once` to avoid multiple header inclusion
+### **Use `#pragma once` to avoid multiple header inclusion**
 
 All current compilers understand the `#pragma once` directive. And it is a lot easier to read than the standard `#ifndef` syntax:
 
@@ -923,7 +792,18 @@ All current compilers understand the `#pragma once` directive. And it is a lot e
 #pragma once
 ```
 
-#### (pointer, size)
+### **Output arguments**
+
+Returning value via arguments should be avoided, but it is not always possible to do so.
+
+When defining a function that returns values via an argument, that argument should be prefixed with `out_`.
+
+```cpp
+// OKAY
+void do_something(ArrayType<int>& out_indices);
+```
+
+### **Arguments: `(pointer, size)`**
 
 When writing a function that takes a pointer and a size/count as parameters, following the standard of the standard C library (`memcpy`, etc) the pointer argument should be passed first and the size argument last. I.e.:
 
@@ -931,12 +811,84 @@ When writing a function that takes a pointer and a size/count as parameters, fol
 void do_something(char *data, unsigned len);
 ```
 
-An even better approach is to use the `core::data_view` as an argument type, which simillary to `std::string_view` holds a pointer to the data and it's size.
+An even better approach is to use the `ice::Data` type as an argument, which is used to define arbitrary constant data.
 
-#### (type, name)
+If you need to pass a mutable data block, use the `ice::Memory` type instead.
+
+### **Arguments: `(type, name)`**
 
 When writing functions that take a resource type and resource name as arguments, the type argument should precede the name argument, i.e. as in:
 
 ```cpp
 bool can_get(ResourceID const& type, ResourceID const& name) const;
+```
+
+### **Function signatures**
+
+Prefer using trailing return types instead of the old syntax. This allows to focus on the function name and it's arguments instead of reading a multiline return type first, which might not even be used.
+
+The exeptions are the `bool` and `void` return types, which also have 4 letters and are so common it is of no value to put them at the end.
+
+```cpp
+// NOT OK
+FooResult foo_task();
+std::unique_ptr<WithAResultType, AndACustomDeleterType> get_future();
+
+// OK
+void bar_task();
+bool is_foobar_done();
+
+auto foo_task() -> FooResult;
+auto get_future() -> std::unique_ptr<WithAResultType, AndACustomDeleterType>;
+```
+
+### **Const the world**
+
+Because C++ does implicitly allow to modify everything _(not like Rust)_ try to `const` eveything that seems to be a good candidate.
+
+If you need to access something, __DO NOT EVER__ `const_cast` it away, search for another way to access the mutable version of that value or if you created the interface, change it to a mutable one.
+
+You can also always provide two method definitions in a class.
+
+```cpp
+class Object
+{
+    auto some_value() -> int&; // Can be only accessed on non-const Object's.
+    auto some_value() const -> int const&; // Can be only accessed on const Object's.
+
+    // BAD: Do not ever return mutable values from const objects!
+    auto some_value() const -> int&; // Can be only accessed on non-const Object's.
+};
+```
+
+### **C++ Attributes**
+
+Make use of C++ attributes like `[[nodiscard]]` and `[[maybe_unused]]`.
+
+```cpp
+[[nodiscard]]
+auto create_expensive_object() -> std::unique_ptr<ExpensiveObject>;
+
+void do_something_on_windows([[maybe_unused]] int some_param)
+{
+#if IS_WINDOWS_BUILD
+    // `some_param` only used on windows builds
+#endif
+}
+```
+
+IceShard embraces modern C++ and defines are replaced or also available as `constexpr` values.
+
+When working platform specific code, you might want to use compile-time if expressions instead of `#if/#endif`. This will also take care of variables beeing `unused` in unhandled scenarios.
+
+```cpp
+void do_something_on_windows(int some_param)
+{
+    // if the expression turns to be false, the compiler still parse it's body and marks `some_param` as used.
+    // This will not trigger an `unused parameter` warning or error.
+    if constexpr(is_windows_build)
+    {
+        // `some_param` only used on windows builds
+    }
+}
 ```
